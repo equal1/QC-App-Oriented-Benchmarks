@@ -1,3 +1,4 @@
+import base64
 import importlib
 import inspect
 import sys
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 
 ### attempt to set up running stuff
 from qbraid import QbraidProvider
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, qasm2
 
 benchmark_paths: dict[str, str] = {
     # Tutorial
@@ -80,11 +81,16 @@ class QBraidBackEnd():
         self.name = "QBraidEqual1Backend"
 
 class QBraidResult:
-    def __init__(self, counts, exec_time):
+    def __init__(self, counts, exec_time, transpiled_circuit_metrics):
         self.exec_time = exec_time
         self.counts = counts
+        self.transpiled_circuit_metrics = transpiled_circuit_metrics
+
     def get_counts(self, qc):
         return self.counts
+
+    def get_transpiled_circuit_metrics(self):
+        return self.transpiled_circuit_metrics
 
 class QBraidExecutor():
     def __init__(self):
@@ -108,7 +114,15 @@ class QBraidExecutor():
         result_json = job.client.get_job_results(job.id)
         inner_exec_time = result_json["inner_execution_time"]
 
-        return QBraidResult(counts, inner_exec_time)
+
+        transpiled_circuit = base64.b64decode(result_json['compiledOutput']).decode('utf-8')
+        transpiled_qc = qasm2.loads(transpiled_circuit, custom_instructions=qasm2.LEGACY_CUSTOM_INSTRUCTIONS)
+
+        from _common.qiskit.execute import get_circuit_metrics
+        metrics = get_circuit_metrics(transpiled_qc)
+
+
+        return QBraidResult(counts, inner_exec_time, metrics)
 
 
 common_params : dict[str, Any] = {
