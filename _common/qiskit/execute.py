@@ -1125,7 +1125,15 @@ def job_complete(job):
         
         if hasattr(result, 'exec_time'):
             exec_time = result.exec_time
-            
+
+        if hasattr(result, 'transpiled_circuit_metrics'):
+            qc_tr_depth, qc_tr_size, qc_count_ops, qc_tr_xi, qc_tr_n2q = result.transpiled_circuit_metrics
+
+            metrics.store_metric(active_circuit["group"], active_circuit["circuit"], 'tr_depth', qc_tr_depth)
+            metrics.store_metric(active_circuit["group"], active_circuit["circuit"], 'tr_size', qc_tr_size)
+            metrics.store_metric(active_circuit["group"], active_circuit["circuit"], 'tr_xi', qc_tr_xi)
+            metrics.store_metric(active_circuit["group"], active_circuit["circuit"], 'tr_n2q', qc_tr_n2q)
+
         # assume the exec time is the elapsed time, since we don't have more detail
         metrics.store_metric(active_circuit["group"], active_circuit["circuit"], 'exec_time', exec_time)
         
