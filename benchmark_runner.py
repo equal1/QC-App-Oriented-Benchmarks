@@ -101,11 +101,11 @@ class QBraidExecutor():
         print(f"attempting to run {qc} on {backend_name}, on {backend} with {shots} and {kwargs}")
 
         runtime_options = {
-            "simulation_platform": "CPU",
+            "simulation_platform": "GPU",
             "execution_options": {"optimization_level": 1},
         }
 
-        job = self.device.run(qc, shots=shots, noise_model="bell1-6", runtime_options=runtime_options)
+        job = self.device.run(qc, shots=shots, noise_model="bell2-17-gen-preview", runtime_options=runtime_options, backend="StateVector")
         job.wait_for_final_state()  # Wait for the job to complete and get final state
 
         if job.status().name != "COMPLETED":
@@ -118,7 +118,7 @@ class QBraidExecutor():
         # print(counts)
 
         result_json = job.client.get_job_results(job.id)
-        inner_exec_time = result_json["inner_execution_time"]
+        inner_exec_time = result_json['executionMetrics']['executor']
 
 
         transpiled_circuit = base64.b64decode(result_json['compiledOutput']).decode('utf-8')
@@ -154,8 +154,8 @@ common_params : dict[str, Any] = {
 # }
 
 class ConfiguredParams(BaseModel):
-    min_qubits : int = 6
-    max_qubits : int = 6
+    min_qubits : int = 16
+    max_qubits : int = 17
     skip_qubits : int = 1
     max_circuits : int = 6
     num_shots : int = 1000
