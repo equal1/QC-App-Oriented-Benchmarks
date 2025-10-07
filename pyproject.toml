@@ -9,7 +9,7 @@ dependencies = [
     "ipykernel>=6.30.0",
     "pip>=25.1.1",
     "pydantic>=2.11",
-    "qbraid==0.9.9.dev20250730193618",
+    "qbraid==0.9.9",
     "qiskit>=2.1.1",
     "qiskit-aer>=0.17.1",
 ]
