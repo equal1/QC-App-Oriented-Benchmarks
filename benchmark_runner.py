@@ -95,21 +95,27 @@ class QBraidResult:
 class QBraidExecutor():
     def __init__(self):
         provider = QbraidProvider()
-        self.device = provider.get_device("equal1_simulator_cpu")
+        self.device = provider.get_device("equal1_simulator")
 
     def __call__(self, qc : QuantumCircuit, backend_name : str, backend, shots, **kwargs) -> QBraidResult:
         print(f"attempting to run {qc} on {backend_name}, on {backend} with {shots} and {kwargs}")
 
-        job = self.device.run(qc, shots=shots, noise_model="bell1-6-lin")
+        runtime_options = {
+            "simulation_platform": "CPU",
+            "execution_options": {"optimization_level": 1},
+        }
+
+        job = self.device.run(qc, shots=shots, noise_model="bell1-6", runtime_options=runtime_options)
         job.wait_for_final_state()  # Wait for the job to complete and get final state
 
         if job.status().name != "COMPLETED":
-            # raise ValueError("job failed")
-            assert f"\n@@@@@@@@@@@@@@ \n JOB FAILED for {qc} \n @@@@@@@@@@@@@@@@@@ \n "
+            job_result = job.client.get_job_results(job.id)
+            print(f"\n@@@@@@@@@@@@@@ \n JOB FAILED for {qc} \n With error message:\n {job_result['statusText']}\n @@@@@@@@@@@@@@@@@@ \n ")
+
 
         result = job.result()
         counts = result.data.get_counts()
-        print(counts)
+        # print(counts)
 
         result_json = job.client.get_job_results(job.id)
         inner_exec_time = result_json["inner_execution_time"]
@@ -148,7 +154,7 @@ common_params : dict[str, Any] = {
 # }
 
 class ConfiguredParams(BaseModel):
-    min_qubits : int = 2
+    min_qubits : int = 6
     max_qubits : int = 6
     skip_qubits : int = 1
     max_circuits : int = 6
