@@ -24,11 +24,11 @@ benchmark_paths: dict[str, str] = {
 
     # Functional
     "hhl": "hhl_benchmark",
-    "grovers": "grovers_benchmark",
+    # "grovers": "grovers_benchmark",
     "hamiltonian-simulation": "hamiltonian_simulation_benchmark",
-    "monte-carlo": "mc_benchmark",
+    # "monte-carlo": "mc_benchmark",
     "vqe": "vqe_benchmark",
-    "shors": "shors_benchmark",
+    # "shors": "shors_benchmark",
 
     # For magic reasons this has to be the last one , so we
     # can at least force a reload on this module
@@ -102,10 +102,12 @@ class QBraidExecutor():
 
         runtime_options = {
             "simulation_platform": "GPU",
-            "execution_options": {"optimization_level": 1},
+            "execution_options": {"optimization_level": 2},
         }
 
-        job = self.device.run(qc, shots=shots, noise_model="bell2-17-gen-preview", runtime_options=runtime_options, backend="StateVector")
+        backend = "StateVector" if qc.num_qubits > 8 else "DensityMatrix"
+
+        job = self.device.run(qc, shots=shots, noise_model="bell2-17-gen-preview", runtime_options=runtime_options, backend=backend)
         job.wait_for_final_state()  # Wait for the job to complete and get final state
 
         if job.status().name != "COMPLETED":
@@ -154,7 +156,7 @@ common_params : dict[str, Any] = {
 # }
 
 class ConfiguredParams(BaseModel):
-    min_qubits : int = 16
+    min_qubits : int = 2
     max_qubits : int = 17
     skip_qubits : int = 1
     max_circuits : int = 6
