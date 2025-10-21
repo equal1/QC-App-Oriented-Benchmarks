@@ -1,3 +1,4 @@
+import base64
 import importlib
 import inspect
 import sys
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 
 ### attempt to set up running stuff
 from qbraid import QbraidProvider
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, qasm2
 
 benchmark_paths: dict[str, str] = {
     # Tutorial
@@ -23,11 +24,11 @@ benchmark_paths: dict[str, str] = {
 
     # Functional
     "hhl": "hhl_benchmark",
-    "grovers": "grovers_benchmark",
+    # "grovers": "grovers_benchmark",
     "hamiltonian-simulation": "hamiltonian_simulation_benchmark",
-    "monte-carlo": "mc_benchmark",
+    # "monte-carlo": "mc_benchmark",
     "vqe": "vqe_benchmark",
-    "shors": "shors_benchmark",
+    # "shors": "shors_benchmark",
 
     # For magic reasons this has to be the last one , so we
     # can at least force a reload on this module
@@ -80,35 +81,56 @@ class QBraidBackEnd():
         self.name = "QBraidEqual1Backend"
 
 class QBraidResult:
-    def __init__(self, counts, exec_time):
+    def __init__(self, counts, exec_time, transpiled_circuit_metrics):
         self.exec_time = exec_time
         self.counts = counts
+        self.transpiled_circuit_metrics = transpiled_circuit_metrics
+
     def get_counts(self, qc):
         return self.counts
+
+    def get_transpiled_circuit_metrics(self):
+        return self.transpiled_circuit_metrics
 
 class QBraidExecutor():
     def __init__(self):
         provider = QbraidProvider()
-        self.device = provider.get_device("equal1_simulator_cpu")
+        self.device = provider.get_device("equal1_simulator")
 
     def __call__(self, qc : QuantumCircuit, backend_name : str, backend, shots, **kwargs) -> QBraidResult:
         print(f"attempting to run {qc} on {backend_name}, on {backend} with {shots} and {kwargs}")
 
-        job = self.device.run(qc, shots=shots, noise_model="bell1-6-lin")
+        runtime_options = {
+            "simulation_platform": "GPU",
+            "execution_options": {"optimization_level": 2},
+        }
+
+        backend = "StateVector" if qc.num_qubits > 8 else "DensityMatrix"
+
+        job = self.device.run(qc, shots=shots, noise_model="bell2-17-gen-preview", runtime_options=runtime_options, backend=backend)
         job.wait_for_final_state()  # Wait for the job to complete and get final state
 
         if job.status().name != "COMPLETED":
-            # raise ValueError("job failed")
-            assert f"\n@@@@@@@@@@@@@@ \n JOB FAILED for {qc} \n @@@@@@@@@@@@@@@@@@ \n "
+            job_result = job.client.get_job_results(job.id)
+            print(f"\n@@@@@@@@@@@@@@ \n JOB FAILED for {qc} \n With error message:\n {job_result['statusText']}\n @@@@@@@@@@@@@@@@@@ \n ")
+
 
         result = job.result()
         counts = result.data.get_counts()
-        print(counts)
+        # print(counts)
 
         result_json = job.client.get_job_results(job.id)
-        inner_exec_time = result_json["inner_execution_time"]
+        inner_exec_time = result_json['executionMetrics']['executor']
 
-        return QBraidResult(counts, inner_exec_time)
+
+        transpiled_circuit = base64.b64decode(result_json['compiledOutput']).decode('utf-8')
+        transpiled_qc = qasm2.loads(transpiled_circuit, custom_instructions=qasm2.LEGACY_CUSTOM_INSTRUCTIONS)
+
+        from _common.qiskit.execute import get_circuit_metrics
+        metrics = get_circuit_metrics(transpiled_qc)
+
+
+        return QBraidResult(counts, inner_exec_time, metrics)
 
 
 common_params : dict[str, Any] = {
@@ -135,7 +157,7 @@ common_params : dict[str, Any] = {
 
 class ConfiguredParams(BaseModel):
     min_qubits : int = 2
-    max_qubits : int = 6
+    max_qubits : int = 17
     skip_qubits : int = 1
     max_circuits : int = 6
     num_shots : int = 1000
