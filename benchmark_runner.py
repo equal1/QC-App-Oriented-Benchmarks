@@ -10,71 +10,55 @@ from pydantic import BaseModel
 
 ### attempt to set up running stuff
 from qbraid import QbraidProvider
-from qiskit import QuantumCircuit, qasm2
+from qiskit import QuantumCircuit, qasm2, qasm3
 
 benchmark_paths: dict[str, str] = {
     # Tutorial
-    "deutsch-jozsa": "dj_benchmark",
-    "bernstein-vazirani": "bv_benchmark",
-    "hidden-shift": "hs_benchmark",
+    "deutsch_jozsa": "dj_benchmark",
+    "bernstein_vazirani": "bv_benchmark",
+    "hidden_shift": "hs_benchmark",
 
     # Subroutine
-    "phase-estimation": "pe_benchmark",
-    "amplitude-estimation": "ae_benchmark",
+    "phase_estimation": "pe_benchmark",
+    "amplitude_estimation": "ae_benchmark",
 
     # Functional
-    "hhl": "hhl_benchmark",
-    # "grovers": "grovers_benchmark",
-    "hamiltonian-simulation": "hamiltonian_simulation_benchmark",
-    # "monte-carlo": "mc_benchmark",
-    "vqe": "vqe_benchmark",
-    # "shors": "shors_benchmark",
+    # "hhl.qiskit": "hhl_benchmark", # Unsupported operation Instruction(name='reset', num_qubits=1, num_clbits=0, params=[]) in circuit
+    "grovers": "grovers_benchmark",
+    "hamiltonian_simulation": "hamiltonian_simulation_benchmark",
+    "monte_carlo": "mc_benchmark",
+    "vqe.qiskit": "vqe_benchmark",
+    "shors.qiskit": "shors_benchmark",
 
     # For magic reasons this has to be the last one , so we
     # can at least force a reload on this module
-    "quantum-fourier-transform": "qft_benchmark",
+
+    "quantum_fourier_transform": "qft_benchmark",
+
 }
 
-has_generic_form: list[str] = [
-    "bernstein-vazirani",
-    "hidden-shift",
-    "quantum-fourier-transform",
-    "phase-estimation",
-]
 
 methods: dict[str, int] = {
-    "bernstein-vazirani": 2,
+    "bernstein-vazirani": 1, # Unsupported operation Instruction(name='reset', num_qubits=1, num_clbits=0, params=[]) in circuit
     "hamiltonian-simulation": 2,
     "quantum-fourier-transform": 2,
     "vqe": 2,
     "shors": 2,
 }
 
-
 @contextmanager
-def temporarily_on_syspaths(paths: Sequence[Path]):
-    """Add *path* to the *front* of sys.path while inside the with-block."""
-    saved_sys_paths = sys.path.copy()
-
-    for path in paths:
-        sys.path.append(str(path))
-    try:
-        yield
-    finally:
-        sys.path = saved_sys_paths
-
-@contextmanager
-def load_benchmark_module(module_name : str):
+def load_benchmark_module(bench_name : str, module_name : str):
     existing_module = sys.modules.get(module_name, None)
     if existing_module is not None:
         temporary_module = importlib.reload(existing_module)
     else:
-        temporary_module = importlib.import_module(module_name)
+        temporary_module = importlib.import_module(bench_name + "." + module_name)
 
     try:
         yield temporary_module
     finally:
         del temporary_module
+
 
 class QBraidBackEnd():
     def __init__(self):
@@ -98,10 +82,10 @@ class QBraidExecutor():
         self.device = provider.get_device("equal1_simulator")
 
     def __call__(self, qc : QuantumCircuit, backend_name : str, backend, shots, **kwargs) -> QBraidResult:
-        print(f"attempting to run {qc} on {backend_name}, on {backend} with {shots} and {kwargs}")
+        # print(f"attempting to run {qc} on {backend_name}, on {backend} with {shots} and {kwargs}")
 
         runtime_options = {
-            "simulation_platform": "GPU",
+            "simulation_platform": "CPU",
             "execution_options": {"optimization_level": 2},
         }
 
@@ -124,7 +108,15 @@ class QBraidExecutor():
 
 
         transpiled_circuit = base64.b64decode(result_json['compiledOutput']).decode('utf-8')
-        transpiled_qc = qasm2.loads(transpiled_circuit, custom_instructions=qasm2.LEGACY_CUSTOM_INSTRUCTIONS)
+        try:
+            transpiled_qc = qasm2.loads(transpiled_circuit, custom_instructions=qasm2.LEGACY_CUSTOM_INSTRUCTIONS)
+        except qasm2.exceptions.QASM2ParseError as e:
+            try:
+                transpiled_qc = qasm3.loads(transpiled_circuit)
+            except qasm3.exceptions.QASM3Error as e:
+                print(f"Error parsing transpiled circuit for {qc}: {e}")
+                transpiled_qc = None
+
 
         from _common.qiskit.execute import get_circuit_metrics
         metrics = get_circuit_metrics(transpiled_qc)
@@ -145,38 +137,25 @@ common_params : dict[str, Any] = {
     "context" : None,
 }
 
-# default_params : dict[str, Any] = {
-#     "backend_id" : "qasm_simulator",
-#     "provider_backend" : None,
-#     "hub" : "",
-#     "group" : "",
-#     "project" : "",
-#     "exec_options" : {},
-#     "context" : None,
-# }
-
 class ConfiguredParams(BaseModel):
-    min_qubits : int = 2
-    max_qubits : int = 17
+    min_qubits : int = 6
+    max_qubits : int = 6
     skip_qubits : int = 1
     max_circuits : int = 6
     num_shots : int = 1000
-
+    draw_circuits : bool = False
+    plot_results : bool = False
 
 
 for benchmark_name, module_name in benchmark_paths.items():
-    path: Path = Path(benchmark_name)
-    path = path / "qiskit" if benchmark_name not in has_generic_form else path
-    assert path.is_dir(), f"Computed path {str(path)} is not a valid directory"
-    with temporarily_on_syspaths([path]):
-        with load_benchmark_module(module_name) as module:
-            if hasattr(module, "run"):
-                config = ConfiguredParams()
-                params = { **config.model_dump(), **common_params}
-                if benchmark_name in has_generic_form:
-                    params["api"] = "qiskit"
+    with load_benchmark_module(benchmark_name, module_name) as module:
+        if hasattr(module, "run"):
+            config = ConfiguredParams()
+            params = { **config.model_dump(), **common_params}
+            if "qiskit" not in benchmark_name:
+                params["api"] = "qiskit"
 
-                module.run(**params)
+            module.run(**params)
 
 import sys
 import metrics
