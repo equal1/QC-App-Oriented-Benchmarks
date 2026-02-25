@@ -1,9 +1,7 @@
 from setuptools import setup, find_packages
 
-# Get all packages and prefix them with parent package name
-packages = ['qedc_appbms']
-for pkg in find_packages():
-    packages.append(f'qedc_appbms.{pkg}')
+# Get all packages recursively and prefix them with parent package name
+packages = ['qedc_appbms'] + [f'qedc_appbms.{pkg}' for pkg in find_packages()]
 
 setup(
     name="qedc-appbms",
