@@ -980,20 +980,20 @@ def main():
 
     # Run all benchmarks
     benchmarks = [
-        # run_deutsch_jozsa,
-        # run_bernstein_vazirani,
-        # run_hidden_shift,
-        # run_qft_method1,
-        # run_qft_method2,
-        # run_grovers,
-        # run_phase_estimation,
-        # run_hhl,
-        # run_amplitude_estimation,
-        # run_monte_carlo,
+        run_deutsch_jozsa,
+        run_bernstein_vazirani,
+        run_hidden_shift,
+        run_qft_method1,
+        run_qft_method2,
+        run_grovers,
+        run_phase_estimation,
+        run_hhl,
+        run_amplitude_estimation,
+        run_monte_carlo,
         # run_hamiltonian_simulation, #broken bench
         run_vqe,
-        run_shors_method1,
-        run_shors_method2,
+        # run_shors_method1,
+        # run_shors_method2,
     ]
 
     for benchmark_func in benchmarks:
