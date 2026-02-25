@@ -49,6 +49,8 @@ VQE_NUM_SHOTS = NUM_SHOTS
 BACKEND_ID = "qasm_simulator"
 
 
+metrics.show_plot_images = False
+
 # ============================================================================
 # QBRAID EXECUTOR CLASSES
 # ============================================================================
