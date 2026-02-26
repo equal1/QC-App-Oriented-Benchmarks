@@ -29,17 +29,17 @@ from _common.qiskit import execute as ex
 # ============================================================================
 
 # Benchmark execution parameters
-MIN_QUBITS = 6
-MAX_QUBITS = 6
+MIN_QUBITS = 7
+MAX_QUBITS = 17
 SKIP_QUBITS = 1
 MAX_CIRCUITS = 1
-NUM_SHOTS = 1000
+NUM_SHOTS = 10000
 
 # qBraid/Equal1 device configuration
 EQUAL1_DEVICE = "equal1_simulator"
 EQUAL1_NOISE_MODEL = "bell2-17-gen-preview"
-SIMULATION_BACKEND = "DensityMatrix"  # Options: "DensityMatrix", "StateVector", etc.
-SIMULATION_PLATFORM = "CPU"  # Options: "CPU", "GPU"
+SIMULATION_BACKEND = "StateVector"  # Options: "DensityMatrix", "StateVector", etc.
+SIMULATION_PLATFORM = "GPU"  # Options: "CPU", "GPU"
 OPTIMIZATION_LEVEL = 2
 
 # Benchmark specific overrides
