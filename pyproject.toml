@@ -12,4 +12,5 @@ dependencies = [
     "qbraid==0.9.9",
     "qiskit>=2.1.1",
     "qiskit-aer>=0.17.1",
+    "qiskit-qasm3-import>=0.6.0",
 ]

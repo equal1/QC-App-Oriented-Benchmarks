@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 ### attempt to set up running stuff
 from qbraid import QbraidProvider
-from qiskit import QuantumCircuit, qasm2
+from qiskit import QuantumCircuit, qasm3
 
 benchmark_paths: dict[str, str] = {
     # Tutorial
@@ -26,7 +26,7 @@ benchmark_paths: dict[str, str] = {
     "hhl": "hhl_benchmark",
     # "grovers": "grovers_benchmark",
     "hamiltonian-simulation": "hamiltonian_simulation_benchmark",
-    # "monte-carlo": "mc_benchmark",
+    "monte-carlo": "mc_benchmark",
     "vqe": "vqe_benchmark",
     # "shors": "shors_benchmark",
 
@@ -98,21 +98,21 @@ class QBraidExecutor():
         self.device = provider.get_device("equal1_simulator")
 
     def __call__(self, qc : QuantumCircuit, backend_name : str, backend, shots, **kwargs) -> QBraidResult:
-        print(f"attempting to run {qc} on {backend_name}, on {backend} with {shots} and {kwargs}")
+        print(f"attempting to run {qc.name} on {backend_name}, on {backend} with {shots} and {kwargs}")
 
         runtime_options = {
             "simulation_platform": "GPU",
             "execution_options": {"optimization_level": 2},
         }
 
-        backend = "StateVector" if qc.num_qubits > 8 else "DensityMatrix"
+        backend = "TensorNet_MPS"
 
-        job = self.device.run(qc, shots=shots, noise_model="bell2-17-gen-preview", runtime_options=runtime_options, backend=backend)
+        job = self.device.run(qc, shots=shots, noise_model="hpc_gamma1-32", runtime_options=runtime_options, backend=backend)
         job.wait_for_final_state()  # Wait for the job to complete and get final state
 
         if job.status().name != "COMPLETED":
             job_result = job.client.get_job_results(job.id)
-            print(f"\n@@@@@@@@@@@@@@ \n JOB FAILED for {qc} \n With error message:\n {job_result['statusText']}\n @@@@@@@@@@@@@@@@@@ \n ")
+            print(f"\n@@@@@@@@@@@@@@ \n JOB FAILED for {qc.name} \n With error message:\n {job_result['statusText']}\n @@@@@@@@@@@@@@@@@@ \n ")
 
 
         result = job.result()
@@ -124,7 +124,7 @@ class QBraidExecutor():
 
 
         transpiled_circuit = base64.b64decode(result_json['compiledOutput']).decode('utf-8')
-        transpiled_qc = qasm2.loads(transpiled_circuit, custom_instructions=qasm2.LEGACY_CUSTOM_INSTRUCTIONS)
+        transpiled_qc = qasm3.loads(transpiled_circuit)
 
         from _common.qiskit.execute import get_circuit_metrics
         metrics = get_circuit_metrics(transpiled_qc)
@@ -156,8 +156,8 @@ common_params : dict[str, Any] = {
 # }
 
 class ConfiguredParams(BaseModel):
-    min_qubits : int = 2
-    max_qubits : int = 17
+    min_qubits : int = 30
+    max_qubits : int = 32
     skip_qubits : int = 1
     max_circuits : int = 6
     num_shots : int = 1000
